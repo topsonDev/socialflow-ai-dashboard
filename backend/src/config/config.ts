@@ -188,6 +188,11 @@ function validateEnv(env: NodeJS.ProcessEnv = process.env): Env {
     console.warn('[Startup Warning] SLACK_WEBHOOK_URL is not set — health alerts will not be sent to Slack');
   }
 
+  // Warn if no TTS provider is configured
+  if (!result.data.ELEVENLABS_API_KEY && !result.data.GOOGLE_TTS_API_KEY) {
+    console.warn('[Startup Warning] No TTS provider configured — TTS features will be unavailable');
+  }
+
   return result.data;
 }
 
