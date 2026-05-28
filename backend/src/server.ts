@@ -16,6 +16,7 @@ import { startHealthMonitoringJob, stopHealthMonitoringJob } from './jobs/health
 import { initializeHealthMonitoring } from './monitoring/healthMonitoringInstance';
 import { createLogger } from './lib/logger';
 import { prisma } from './lib/prisma';
+import { initDirectories } from './utils/initDirectories';
 import { Worker } from 'bullmq';
 import { Server } from 'http';
 import { createSmsService } from './services/smsService';
@@ -211,6 +212,18 @@ process.on('SIGTERM', () => {
 export const bootstrap = async (exit?: (code: number) => void): Promise<void> => {
   const doExit = exit ?? ((code) => process.exit(code));
   try {
+    // Initialize required directories
+    try {
+      await initDirectories();
+      logger.info('Required directories initialized');
+    } catch (error) {
+      logger.error('Failed to initialize directories', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      doExit(1);
+      return;
+    }
+
     // Initialize SMS service
     createSmsService({
       accountSid: config.TWILIO_ACCOUNT_SID,
