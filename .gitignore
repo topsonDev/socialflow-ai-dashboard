@@ -20,8 +20,8 @@ release
 
 # Environment files
 .env
+.env.*
 *.local
-.env
 .env.local
 .env.*.local
 
@@ -64,6 +64,14 @@ prisma/dev.db-journal
 # Uploads
 uploads/
 backend/uploads/
+
+# Terraform state and local overrides
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform/
+.terraform.lock.hcl
 
 # Project Tracking
 somzilla.md
