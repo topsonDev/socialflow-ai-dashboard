@@ -6,6 +6,7 @@
  * scaling, this file can be run as a standalone process via:
  *   node -r ts-node/register src/workers/index.ts
  */
+import '../tracing'; // must be first — patches BullMQ and Prisma before they load
 import { Job, Worker } from 'bullmq';
 import { trace, context, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { queueManager } from '../queues/queueManager';
