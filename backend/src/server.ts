@@ -8,6 +8,7 @@ import { startWorkers } from './workers/index';
 import { queueManager, closeRedisClient } from './queues/queueManager';
 import { startDataPruningJob, stopDataPruningJob } from './jobs/dataPruningJob';
 import { startYouTubeSyncJob, stopYouTubeSyncJob } from './jobs/youtubeSyncJob';
+import { startPlatformMedianJob, stopPlatformMedianJob } from './jobs/platformMedianJob';
 import { startTikTokVideoWorker } from './jobs/tiktokVideoJob';
 import { startVideoWorker } from './services/VideoService';
 import { startTwitterWebhookWorker } from './queues/twitterWebhookQueue';
@@ -133,6 +134,14 @@ export const gracefulShutdown = async (
       logger.info('YouTube sync job stopped');
     } catch (error) {
       logger.error('Failed to stop YouTube sync job', { error: error instanceof Error ? error.message : String(error) });
+    }
+
+    // Stop platform median job
+    try {
+      await stopPlatformMedianJob();
+      logger.info('Platform median job stopped');
+    } catch (error) {
+      logger.error('Failed to stop platform median job', { error: error instanceof Error ? error.message : String(error) });
     }
 
     // Close job queues and workers
@@ -297,6 +306,16 @@ export const bootstrap = async (exit?: (code: number) => void): Promise<void> =>
       logger.info('YouTube analytics sync job started');
     } catch (error) {
       logger.error('Failed to start YouTube sync job', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+
+    // Start platform median refresh job (seeds PredictiveService from real analytics data)
+    try {
+      await startPlatformMedianJob();
+      logger.info('Platform median job started');
+    } catch (error) {
+      logger.error('Failed to start platform median job', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
