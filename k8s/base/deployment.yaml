@@ -26,7 +26,7 @@ spec:
       initContainers:
         - name: migrate
           image: socialflow-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command: ["npx", "prisma", "migrate", "deploy"]
           envFrom:
             - configMapRef:
@@ -43,7 +43,7 @@ spec:
       containers:
         - name: backend
           image: socialflow-backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 3001
