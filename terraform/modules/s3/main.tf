@@ -44,8 +44,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "main" {
     # Remove current backup objects after 30 days
     expiration { days = 30 }
 
-    # Remove non-current versions (after versioning overwrites) after 7 days
-    noncurrent_version_expiration { noncurrent_days = 7 }
+    # Remove non-current versions (after versioning overwrites) after 90 days
+    noncurrent_version_expiration { noncurrent_days = 90 }
 
     # Clean up incomplete multipart uploads after 1 day
     abort_incomplete_multipart_upload { days_after_initiation = 1 }
