@@ -1,10 +1,24 @@
 import { ExportService } from '../ExportService';
 import { prisma } from '../../lib/prisma';
+import { replicaClient } from '../../lib/readReplica';
 import { Response } from 'express';
 
 // Mock Prisma
 jest.mock('../../lib/prisma', () => ({
   prisma: {
+    analyticsEntry: {
+      findMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+    },
+    post: {
+      findMany: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+    },
+  },
+}));
+
+jest.mock('../../lib/readReplica', () => ({
+  replicaClient: {
     analyticsEntry: {
       findMany: jest.fn(),
       count: jest.fn().mockResolvedValue(0),
@@ -32,7 +46,7 @@ describe('ExportService', () => {
 
   describe('streamAnalyticsAsCSV', () => {
     it('should set correct headers for CSV export', async () => {
-      (prisma.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
+      (replicaClient.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
 
       await ExportService.streamAnalyticsAsCSV(
         'org-123',
@@ -48,9 +62,9 @@ describe('ExportService', () => {
       );
     });
 
-    it('should set Content-Length header based on row count', async () => {
-      (prisma.analyticsEntry.count as jest.Mock).mockResolvedValue(10);
-      (prisma.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
+    it('should set X-Total-Rows header based on row count', async () => {
+      (replicaClient.analyticsEntry.count as jest.Mock).mockResolvedValue(42);
+      (replicaClient.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
 
       await ExportService.streamAnalyticsAsCSV(
         'org-123',
@@ -59,18 +73,18 @@ describe('ExportService', () => {
         mockRes as Response,
       );
 
-      expect(mockRes.setHeader).toHaveBeenCalledWith('Content-Length', expect.any(Number));
+      expect(mockRes.setHeader).toHaveBeenCalledWith('X-Total-Rows', '42');
     });
 
     it('should query analytics with correct date range', async () => {
-      (prisma.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
+      (replicaClient.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
 
       const startDate = new Date('2025-01-01');
       const endDate = new Date('2025-12-31');
 
       await ExportService.streamAnalyticsAsCSV('org-123', startDate, endDate, mockRes as Response);
 
-      expect(prisma.analyticsEntry.findMany).toHaveBeenCalledWith(
+      expect(replicaClient.analyticsEntry.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
             organizationId: 'org-123',
@@ -93,7 +107,7 @@ describe('ExportService', () => {
         recordedAt: new Date('2025-06-15'),
       }));
 
-      (prisma.analyticsEntry.findMany as jest.Mock)
+      (replicaClient.analyticsEntry.findMany as jest.Mock)
         .mockResolvedValueOnce(mockData)
         .mockResolvedValueOnce([]);
 
@@ -105,10 +119,10 @@ describe('ExportService', () => {
       );
 
       // Should be called twice: first batch + second batch (empty)
-      expect(prisma.analyticsEntry.findMany).toHaveBeenCalledTimes(2);
+      expect(replicaClient.analyticsEntry.findMany).toHaveBeenCalledTimes(2);
 
       // Second call should use cursor
-      expect(prisma.analyticsEntry.findMany).toHaveBeenNthCalledWith(
+      expect(replicaClient.analyticsEntry.findMany).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           cursor: { id: 'id-999' },
@@ -138,11 +152,25 @@ describe('ExportService', () => {
         'attachment; filename="analytics.jsonl"',
       );
     });
+
+    it('should set X-Total-Rows header for analytics JSON export', async () => {
+      (replicaClient.analyticsEntry.count as jest.Mock).mockResolvedValue(15);
+      (prisma.analyticsEntry.findMany as jest.Mock).mockResolvedValue([]);
+
+      await ExportService.streamAnalyticsAsJSON(
+        'org-123',
+        new Date('2025-01-01'),
+        new Date('2025-12-31'),
+        mockRes as Response,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('X-Total-Rows', '15');
+    });
   });
 
   describe('streamPostsAsCSV', () => {
     it('should set correct headers for posts CSV export', async () => {
-      (prisma.post.findMany as jest.Mock).mockResolvedValue([]);
+      (replicaClient.post.findMany as jest.Mock).mockResolvedValue([]);
 
       await ExportService.streamPostsAsCSV(
         'org-123',
@@ -158,6 +186,20 @@ describe('ExportService', () => {
       );
     });
 
+    it('should set X-Total-Rows header for posts CSV export', async () => {
+      (replicaClient.post.count as jest.Mock).mockResolvedValue(7);
+      (replicaClient.post.findMany as jest.Mock).mockResolvedValue([]);
+
+      await ExportService.streamPostsAsCSV(
+        'org-123',
+        new Date('2025-01-01'),
+        new Date('2025-12-31'),
+        mockRes as Response,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('X-Total-Rows', '7');
+    });
+
     it('should escape quotes in post content', async () => {
       const mockData = [
         {
@@ -170,7 +212,7 @@ describe('ExportService', () => {
         },
       ];
 
-      (prisma.post.findMany as jest.Mock).mockResolvedValueOnce(mockData).mockResolvedValueOnce([]);
+      (replicaClient.post.findMany as jest.Mock).mockResolvedValueOnce(mockData).mockResolvedValueOnce([]);
 
       await ExportService.streamPostsAsCSV(
         'org-123',
@@ -179,7 +221,6 @@ describe('ExportService', () => {
         mockRes as Response,
       );
 
-      // Verify the stream was created and piped
       expect(mockRes.pipe).toHaveBeenCalled();
     });
   });
@@ -203,6 +244,20 @@ describe('ExportService', () => {
         'Content-Disposition',
         'attachment; filename="posts.jsonl"',
       );
+    });
+
+    it('should set X-Total-Rows header for posts JSON export', async () => {
+      (replicaClient.post.count as jest.Mock).mockResolvedValue(3);
+      (prisma.post.findMany as jest.Mock).mockResolvedValue([]);
+
+      await ExportService.streamPostsAsJSON(
+        'org-123',
+        new Date('2025-01-01'),
+        new Date('2025-12-31'),
+        mockRes as Response,
+      );
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith('X-Total-Rows', '3');
     });
   });
 });
